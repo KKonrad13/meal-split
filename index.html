@@ -277,14 +277,40 @@
     .modal-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .modal-title { font-size: 1.0625rem; font-weight: 700; }
 
-    /* Modal tabs */
-    .modal-tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 9px; padding: 3px; margin-bottom: 14px; }
-    .modal-tab {
-      flex: 1; text-align: center; padding: 7px; border-radius: 7px;
-      font-size: 0.875rem; font-weight: 600; cursor: pointer;
-      background: none; color: var(--text2); border: none; touch-action: manipulation;
+    /* ── Container chips ── */
+    .chip-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      margin-bottom: 10px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
-    .modal-tab.active { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+    .chip-row::-webkit-scrollbar { display: none; }
+    .chip {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--pri-dim);
+      color: var(--primary);
+      border: none;
+      border-radius: 20px;
+      padding: 7px 14px;
+      min-height: 44px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      flex-shrink: 0;
+      touch-action: manipulation;
+      font-family: inherit;
+      transition: opacity .15s;
+    }
+    .chip:active { opacity: .6; }
+    .chip-wt { font-size: 0.6875rem; font-weight: 400; opacity: .75; margin-top: 1px; }
+    .chip.chip-new { background: none; border: 1.5px dashed var(--border); color: var(--text2); }
 
     /* Checkbox */
     .cb-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
@@ -331,8 +357,8 @@
   <!-- ── Section 2: Containers ── -->
   <div class="card">
     <p class="sec-label">Containers</p>
+    <div id="chip-row" class="chip-row"></div>
     <div id="container-list"></div>
-    <button class="btn ghost full" id="btn-add-c" style="margin-top:8px">+ Add container</button>
   </div>
 
   <!-- ── Section 3: Results ── -->
@@ -401,8 +427,6 @@ const session = {
   manageTab: 'containers',
 };
 
-// ── Add-container modal state ───────────────────────────────────────────────
-let addTab = 'saved';
 
 // ── Utilities ───────────────────────────────────────────────────────────────
 function uid() { return Math.random().toString(36).slice(2, 9); }
@@ -600,6 +624,7 @@ function manageAdd(type) {
   if (type === 'container') {
     db.containers.push(item);
     saveDB('containers');
+    renderChips();
   } else {
     db.sources.push(item);
     saveDB('sources');
@@ -623,6 +648,7 @@ function reqDelete(type, id) {
   if (type === 'container') {
     db.containers = db.containers.filter(c => c.id !== id);
     saveDB('containers');
+    renderChips();
   } else {
     db.sources = db.sources.filter(s => s.id !== id);
     saveDB('sources');
@@ -637,80 +663,57 @@ function reqDelete(type, id) {
   renderManage();
 }
 
-// ── Add-container modal ──────────────────────────────────────────────────────
-function openAddContainerModal() {
-  addTab = db.containers.length > 0 ? 'saved' : 'new';
-  $('modal-title').textContent = 'Add container';
-  renderAddContainerModal();
+// ── Container chips ──────────────────────────────────────────────────────────
+function renderChips() {
+  const el = $('chip-row');
+  el.innerHTML = db.containers.map(c => `
+    <button class="chip" onclick="addFromChip('${c.id}')">
+      ${esc(c.name)}<span class="chip-wt">${c.weight} g</span>
+    </button>
+  `).join('') + `<button class="chip chip-new" onclick="openNewContainerModal()">+ New</button>`;
+}
+
+function addFromChip(dbId) {
+  const c = db.containers.find(c => c.id === dbId);
+  if (!c) return;
+  const existing = session.containers.find(s => s.srcId === dbId);
+  if (existing) {
+    const el = $('count-' + existing.id);
+    const cur = el ? (parseInt(el.value) || 1) : (parseInt(existing.count) || 1);
+    existing.count = String(cur + 1);
+    if (el) el.value = existing.count;
+    renderResults();
+    return;
+  }
+  session.containers.push({ id: uid(), srcId: dbId, name: c.name, weight: c.weight, mult: '1', count: '1' });
+  renderContainers();
+}
+
+function openNewContainerModal() {
+  $('modal-title').textContent = 'New container';
+  $('modal-body').innerHTML = `
+    <div class="field"><label class="lbl">Name</label><input id="add-name" type="text" placeholder="e.g. Glass bowl"></div>
+    <div class="field"><label class="lbl">Tare weight (g)</label><input id="add-wt" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 320"></div>
+    <div class="cb-row"><input id="add-save" type="checkbox" checked><label for="add-save">Save for later</label></div>
+    <button class="btn primary full" onclick="confirmNewContainer()" style="margin-top:12px">Add to session</button>
+  `;
   showOverlay();
 }
 
-function renderAddContainerModal() {
-  const hasSaved = db.containers.length > 0;
-  $('modal-body').innerHTML = `
-    ${hasSaved ? `
-      <div class="modal-tabs">
-        <button class="modal-tab${addTab === 'saved' ? ' active' : ''}" onclick="switchAddTab('saved')">Saved</button>
-        <button class="modal-tab${addTab === 'new'   ? ' active' : ''}" onclick="switchAddTab('new')">New</button>
-      </div>` : ''}
-    <div id="add-tab-body">${buildAddTabBody(hasSaved)}</div>
-    <div class="field" style="margin-top:12px">
-      <label class="lbl">Portion multiplier <span style="color:var(--text2);font-weight:400">(1.0 = equal share)</span></label>
-      <input id="add-mult" type="number" value="1.0" step="0.1" min="0" inputmode="decimal">
-    </div>
-    <button class="btn primary full" onclick="confirmAdd()" style="margin-top:12px">Add to session</button>
-  `;
-}
-
-function buildAddTabBody(hasSaved) {
-  if (addTab === 'saved' && hasSaved) {
-    return `
-      <div class="field">
-        <label class="lbl">Select container</label>
-        <select id="add-sel">
-          <option value="">— Choose —</option>
-          ${db.containers.map(c => `<option value="${c.id}">${esc(c.name)} (${c.weight} g)</option>`).join('')}
-        </select>
-      </div>`;
+function confirmNewContainer() {
+  const name   = ($('add-name').value || '').trim();
+  const weight = parseFloat(($('add-wt').value || '').replace(',', '.'));
+  if (!name || isNaN(weight) || weight < 0) { alert('Enter a valid name and weight.'); return; }
+  let srcId = null;
+  if ($('add-save').checked) {
+    const item = { id: uid(), name, weight };
+    db.containers.push(item);
+    saveDB('containers');
+    srcId = item.id;
+    renderChips();
+    renderManage();
   }
-  return `
-    <div class="field"><label class="lbl">Name</label><input id="add-name" type="text" placeholder="e.g. Glass bowl"></div>
-    <div class="field"><label class="lbl">Tare weight (g)</label><input id="add-wt" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 320"></div>
-    <div class="cb-row"><input id="add-save" type="checkbox"><label for="add-save">Save for later</label></div>`;
-}
-
-function switchAddTab(tab) {
-  addTab = tab;
-  const body = $('add-tab-body');
-  if (body) body.innerHTML = buildAddTabBody(true);
-  document.querySelectorAll('.modal-tab').forEach(b => {
-    b.classList.toggle('active', b.textContent.toLowerCase() === tab);
-  });
-}
-
-function confirmAdd() {
-  const mult = parseFloat($('add-mult').value);
-  if (isNaN(mult) || mult < 0) { alert('Enter a valid multiplier.'); return; }
-
-  let name, weight;
-  if (addTab === 'saved' && db.containers.length > 0) {
-    const id = $('add-sel').value;
-    if (!id) { alert('Select a container.'); return; }
-    const c = db.containers.find(c => c.id === id);
-    name = c.name; weight = c.weight;
-  } else {
-    name   = ($('add-name').value || '').trim();
-    weight = parseFloat(($('add-wt') || {}).value);
-    if (!name || isNaN(weight) || weight < 0) { alert('Enter a valid name and weight.'); return; }
-    if ($('add-save') && $('add-save').checked) {
-      const item = { id: uid(), name, weight };
-      db.containers.push(item);
-      saveDB('containers');
-      renderManage();
-    }
-  }
-
-  session.containers.push({ id: uid(), name, weight, mult: String(mult), count: '1' });
+  session.containers.push({ id: uid(), srcId, name, weight, mult: '1', count: '1' });
   hideOverlay();
   renderContainers();
 }
@@ -744,8 +747,6 @@ $('btn-save-src').addEventListener('click', () => {
   renderManage();
   renderNet(); renderResults();
 });
-
-$('btn-add-c').addEventListener('click', openAddContainerModal);
 
 $('modal-close').addEventListener('click', hideOverlay);
 $('overlay').addEventListener('click', e => { if (e.target === $('overlay')) hideOverlay(); });
@@ -858,6 +859,7 @@ async function pullFromGist() {
     db.syncAt     = new Date().toISOString();
     saveDB('containers'); saveDB('sources'); saveDB('syncAt');
     renderSourceOptions(true);
+    renderChips();
     renderManage();
     renderSync();
     alert('Pulled successfully.');
@@ -866,11 +868,12 @@ async function pullFromGist() {
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 renderSourceOptions(false);
+renderChips();
 renderContainers();
 renderManage();
 renderSync();
 
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 </script>
