@@ -193,6 +193,14 @@
       padding: 8px 6px;
       font-size: 0.9375rem;
     }
+    .count-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .count-sym { font-size: 0.6875rem; color: var(--text2); margin-bottom: 2px; }
+    .count-inp {
+      width: 52px;
+      text-align: center;
+      padding: 8px 6px;
+      font-size: 0.9375rem;
+    }
 
     /* ── Results ── */
     .res-row {
@@ -469,19 +477,25 @@ function getMult(id) {
   return el ? Math.max(0, parseFloat(el.value) || 0) : 0;
 }
 
+function getCount(id) {
+  const el = $('count-' + id);
+  return el ? Math.max(1, parseInt(el.value) || 1) : 1;
+}
+
 function computeResults() {
   const total = getTotal();
   const tare  = getSourceTare();
   if (!total || tare === null || session.containers.length === 0) return null;
   const net     = total - tare;
-  const sumMult = session.containers.reduce((s, c) => s + getMult(c.id), 0);
+  const sumMult = session.containers.reduce((s, c) => s + getMult(c.id) * getCount(c.id), 0);
   const unit    = (sumMult > 0 && net > 0) ? net / sumMult : 0;
   return {
     net,
     containers: session.containers.map(c => {
       const m    = getMult(c.id);
-      const food = unit * m;
-      return { ...c, food, target: c.weight + food };
+      const n    = getCount(c.id);
+      const food = unit * m;           // food per individual container
+      return { ...c, count: n, food, target: c.weight + food };
     }),
   };
 }
@@ -505,10 +519,10 @@ function renderNet() {
 
 // ── Render: container list ───────────────────────────────────────────────────
 function renderContainers() {
-  // Sync mult values before re-render so they survive list rebuild
+  // Sync inputs before re-render so values survive list rebuild
   session.containers.forEach(c => {
-    const el = $('mult-' + c.id);
-    if (el) c.mult = el.value;
+    const me = $('mult-' + c.id);  if (me) c.mult  = me.value;
+    const ce = $('count-' + c.id); if (ce) c.count = ce.value;
   });
 
   const el = $('container-list');
@@ -520,6 +534,11 @@ function renderContainers() {
         <div class="c-info">
           <div class="c-name">${esc(c.name)}</div>
           <div class="c-tare">${c.weight} g tare</div>
+        </div>
+        <div class="count-wrap">
+          <span class="count-sym">qty</span>
+          <input id="count-${c.id}" class="count-inp" type="number" step="1" min="1"
+                 value="${c.count || 1}" inputmode="numeric" oninput="onMultChange()">
         </div>
         <div class="mult-wrap">
           <span class="mult-sym">× mult</span>
@@ -544,8 +563,8 @@ function renderResults() {
   list.innerHTML = r.containers.map(c => `
     <div class="res-row">
       <div class="res-left">
-        <div class="res-name">${esc(c.name)}</div>
-        <div class="res-break">${c.weight} g + ${c.food.toFixed(1)} g food</div>
+        <div class="res-name">${esc(c.name)}${c.count > 1 ? ` <span style="color:var(--text2);font-weight:400">× ${c.count}</span>` : ''}</div>
+        <div class="res-break">${c.weight} g + ${c.food.toFixed(1)} g food${c.count > 1 ? ' — each' : ''}</div>
       </div>
       <div class="res-target">${c.target.toFixed(1)}<span class="res-unit"> g</span></div>
     </div>
@@ -828,7 +847,7 @@ function confirmAdd() {
     }
   }
 
-  session.containers.push({ id: uid(), name, weight, mult: String(mult) });
+  session.containers.push({ id: uid(), name, weight, mult: String(mult), count: '1' });
   hideOverlay();
   renderContainers();
 }
