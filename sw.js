@@ -1,4 +1,4 @@
-const CACHE = 'mealsplit-v1';
+const CACHE = 'mealsplit-v2';
 const FILES = ['./', './index.html', './manifest.json', './sw.js', './icon.svg'];
 
 self.addEventListener('install', e => {

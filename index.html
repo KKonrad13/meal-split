@@ -185,22 +185,12 @@
     .c-info { flex: 1; min-width: 0; }
     .c-name { font-weight: 600; font-size: 0.9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .c-tare { font-size: 0.8125rem; color: var(--text2); }
-    .mult-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-    .mult-sym { font-size: 0.6875rem; color: var(--text2); margin-bottom: 2px; }
-    .mult-inp {
-      width: 68px;
-      text-align: center;
-      padding: 8px 6px;
-      font-size: 0.9375rem;
-    }
-    .count-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
-    .count-sym { font-size: 0.6875rem; color: var(--text2); margin-bottom: 2px; }
-    .count-inp {
-      width: 52px;
-      text-align: center;
-      padding: 8px 6px;
-      font-size: 0.9375rem;
-    }
+    .c-ctrl { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; gap: 3px; }
+    .c-ctrl-row { display: flex; align-items: center; gap: 5px; }
+    .c-x { font-size: 0.875rem; color: var(--text2); font-weight: 600; }
+    .c-ctrl-lbl { font-size: 0.6875rem; color: var(--text2); }
+    input.count-inp { width: 46px; text-align: center; padding: 9px 4px; font-size: 1rem; }
+    input.mult-inp  { width: 58px; text-align: center; padding: 9px 4px; font-size: 1rem; }
 
     /* ── Results ── */
     .res-row {
@@ -441,7 +431,8 @@ function getSourceTare() {
 
 function getMult(id) {
   const el = $('mult-' + id);
-  return el ? Math.max(0, parseFloat(el.value) || 0) : 0;
+  if (!el) return 0;
+  return Math.max(0, parseFloat(el.value.replace(',', '.')) || 0);
 }
 
 function getCount(id) {
@@ -502,15 +493,16 @@ function renderContainers() {
           <div class="c-name">${esc(c.name)}</div>
           <div class="c-tare">${c.weight} g tare</div>
         </div>
-        <div class="count-wrap">
-          <span class="count-sym">qty</span>
-          <input id="count-${c.id}" class="count-inp" type="number" step="1" min="1"
-                 value="${c.count || 1}" inputmode="numeric" oninput="onMultChange()">
-        </div>
-        <div class="mult-wrap">
-          <span class="mult-sym">× mult</span>
-          <input id="mult-${c.id}" class="mult-inp" type="number" step="0.1" min="0"
-                 value="${c.mult}" inputmode="decimal" oninput="onMultChange()">
+        <div class="c-ctrl">
+          <div class="c-ctrl-row">
+            <input id="count-${c.id}" class="count-inp" type="number" step="1" min="1"
+                   value="${c.count || 1}" inputmode="numeric"
+                   oninput="this.value=this.value.replace(/[^0-9]/g,'');onMultChange()">
+            <span class="c-x">×</span>
+            <input id="mult-${c.id}" class="mult-inp" type="text"
+                   value="${c.mult}" inputmode="decimal" oninput="onMultChange()">
+          </div>
+          <div class="c-ctrl-lbl">qty × mult</div>
         </div>
         <button class="btn-icon danger" onclick="removeContainer('${c.id}')" aria-label="Remove">✕</button>
       </div>
