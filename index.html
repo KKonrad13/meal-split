@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MealSplit">
+  <title>MealSplit</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <style>
+    :root {
+      --bg:       #f2f2f7;
+      --card:     #ffffff;
+      --primary:  #007AFF;
+      --pri-dim:  #d1e8ff;
+      --danger:   #FF3B30;
+      --text:     #000000;
+      --text2:    #6c6c70;
+      --border:   #e5e5ea;
+      --green:    #34c759;
+      --radius:   14px;
+      --safe-top: env(safe-area-inset-top);
+      --safe-bot: env(safe-area-inset-bottom);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg:     #1c1c1e;
+        --card:   #2c2c2e;
+        --pri-dim:#1a3a5c;
+        --text:   #ffffff;
+        --text2:  #8e8e93;
+        --border: #38383a;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: calc(16px + var(--safe-top)) 20px 14px;
+      font-size: 1.125rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    main {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px 16px calc(24px + var(--safe-bot));
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .sec-label {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text2);
+      margin-bottom: 12px;
+    }
+
+    /* ── Form ── */
+    .field { margin-bottom: 10px; }
+    .field:last-child { margin-bottom: 0; }
+    label.lbl {
+      display: block;
+      font-size: 0.8125rem;
+      color: var(--text2);
+      margin-bottom: 4px;
+    }
+    input[type="number"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 11px 12px;
+      font-size: 1rem;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--text);
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+      transition: border-color .15s;
+      font-family: inherit;
+    }
+    input:focus, select:focus { border-color: var(--primary); }
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    /* ── Buttons ── */
+    button {
+      font-family: inherit;
+      border: none;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: opacity .15s;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    button:active { opacity: .6; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 16px;
+      font-size: 0.9375rem;
+    }
+    .btn.primary { background: var(--primary); color: #fff; }
+    .btn.ghost   { background: var(--pri-dim); color: var(--primary); }
+    .btn.danger  { background: var(--danger);  color: #fff; }
+    .btn.full    { width: 100%; }
+    .btn.sm      { min-height: 36px; padding: 0 12px; font-size: 0.8125rem; }
+    .btn-icon {
+      background: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      color: var(--text2);
+      flex-shrink: 0;
+    }
+    .btn-icon.danger { color: var(--danger); }
+
+    /* ── Row layout ── */
+    .row { display: flex; gap: 8px; align-items: flex-end; }
+    .row .field { flex: 1; margin-bottom: 0; }
+    .row .field.small { flex: 0 0 110px; }
+
+    /* ── Net food display ── */
+    .net-box {
+      margin-top: 12px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: var(--pri-dim);
+      text-align: center;
+    }
+    .net-box .net-lbl { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--primary); }
+    .net-box .net-val { font-size: 2rem; font-weight: 800; color: var(--primary); line-height: 1.1; }
+    .net-box.err { background: #ffe5e4; }
+    .net-box.err .net-lbl,
+    .net-box.err .net-val { color: var(--danger); }
+    .net-box .net-note { font-size: 0.8125rem; color: var(--danger); margin-top: 2px; }
+    @media (prefers-color-scheme: dark) {
+      .net-box.err { background: #3b1a1a; }
+    }
+
+    /* ── Container rows ── */
+    .c-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .c-row:last-of-type { border-bottom: none; }
+    .c-info { flex: 1; min-width: 0; }
+    .c-name { font-weight: 600; font-size: 0.9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .c-tare { font-size: 0.8125rem; color: var(--text2); }
+    .mult-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .mult-sym { font-size: 0.6875rem; color: var(--text2); margin-bottom: 2px; }
+    .mult-inp {
+      width: 68px;
+      text-align: center;
+      padding: 8px 6px;
+      font-size: 0.9375rem;
+    }
+
+    /* ── Results ── */
+    .res-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .res-row:last-of-type { border-bottom: none; }
+    .res-left { flex: 1; min-width: 0; }
+    .res-name { font-weight: 600; font-size: 0.9375rem; }
+    .res-break { font-size: 0.8125rem; color: var(--text2); white-space: nowrap; }
+    .res-target { font-size: 2rem; font-weight: 800; color: var(--primary); white-space: nowrap; line-height: 1; }
+    .res-unit { font-size: 0.875rem; font-weight: 500; }
+    .res-sanity { text-align: center; font-size: 0.8125rem; color: var(--text2); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; color: var(--text2); font-size: 0.875rem; padding: 12px 0; }
+
+    /* ── Manage (details) ── */
+    details.manage { background: var(--card); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; }
+    details.manage > summary {
+      padding: 16px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--text2);
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    details.manage > summary::-webkit-details-marker { display: none; }
+    details.manage > summary::after { content: '›'; font-size: 1.25rem; font-weight: 400; transition: transform .2s; }
+    details[open].manage > summary::after { transform: rotate(90deg); }
+    .manage-inner { padding: 0 16px 16px; }
+
+    /* Manage tabs */
+    .mtabs { display: flex; gap: 4px; background: var(--bg); border-radius: 9px; padding: 3px; margin-bottom: 14px; }
+    .mtab {
+      flex: 1; text-align: center; padding: 7px; border-radius: 7px;
+      font-size: 0.875rem; font-weight: 600; cursor: pointer;
+      background: none; color: var(--text2); border: none;
+      touch-action: manipulation; transition: none;
+    }
+    .mtab.active { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+    /* Saved item rows */
+    .saved-row { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+    .saved-row:last-of-type { border-bottom: none; }
+    .saved-info { flex: 1; }
+    .saved-name { font-weight: 500; font-size: 0.9375rem; }
+    .saved-wt { font-size: 0.8125rem; color: var(--text2); }
+    .manage-add { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+    .manage-add input { flex: 1; min-width: 80px; }
+
+    /* ── Overlay / modal ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 50;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .overlay.hidden { display: none; }
+    .modal-sheet {
+      background: var(--card);
+      border-radius: 20px 20px 0 0;
+      padding: 12px 20px calc(20px + var(--safe-bot));
+      width: 100%;
+      max-width: 600px;
+      animation: slideUp .25s ease-out;
+      max-height: 90dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-handle { width: 36px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 16px; }
+    .modal-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-title { font-size: 1.0625rem; font-weight: 700; }
+
+    /* Modal tabs */
+    .modal-tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 9px; padding: 3px; margin-bottom: 14px; }
+    .modal-tab {
+      flex: 1; text-align: center; padding: 7px; border-radius: 7px;
+      font-size: 0.875rem; font-weight: 600; cursor: pointer;
+      background: none; color: var(--text2); border: none; touch-action: manipulation;
+    }
+    .modal-tab.active { background: var(--card); color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+    /* Checkbox */
+    .cb-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+    .cb-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--primary); }
+    .cb-row label { font-size: 0.9375rem; color: var(--text); }
+
+    /* ── PIN keypad ── */
+    .pin-prompt { text-align: center; color: var(--text2); font-size: 0.9375rem; margin-bottom: 14px; }
+    .pin-dots { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
+    .pin-dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--primary); transition: background .1s; }
+    .pin-dot.filled { background: var(--primary); }
+    .pin-err { text-align: center; color: var(--danger); font-size: 0.875rem; min-height: 22px; margin-bottom: 8px; }
+    .pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .pin-key {
+      background: var(--bg);
+      color: var(--text);
+      font-size: 1.5rem;
+      font-weight: 500;
+      border-radius: 12px;
+      min-height: 58px;
+      border: none;
+      cursor: pointer;
+      touch-action: manipulation;
+      font-family: inherit;
+    }
+    .pin-key:active { opacity: .55; }
+    .pin-key.ok  { background: var(--primary); color: #fff; font-size: 1.25rem; }
+    .pin-key.del { font-size: 1.25rem; }
+    .pin-footer { display: flex; justify-content: flex-end; margin-top: 14px; }
+  </style>
+</head>
+<body>
+
+<header>MealSplit</header>
+
+<main>
+  <!-- ── Section 1: Source ── -->
+  <div class="card" id="sec-source">
+    <p class="sec-label">Source</p>
+    <div class="field">
+      <label class="lbl" for="inp-total">Total weight on scale (g)</label>
+      <input type="number" id="inp-total" inputmode="decimal" step="0.1" placeholder="e.g. 1850">
+    </div>
+    <div class="field">
+      <label class="lbl" for="sel-source">Source vessel</label>
+      <select id="sel-source">
+        <option value="">— Select or add new —</option>
+        <option value="__new__">+ Add new…</option>
+      </select>
+    </div>
+    <div id="new-source" style="display:none">
+      <div class="row" style="margin-top:8px">
+        <div class="field">
+          <label class="lbl">Name</label>
+          <input type="text" id="inp-src-name" placeholder="e.g. Big pot">
+        </div>
+        <div class="field small">
+          <label class="lbl">Weight (g)</label>
+          <input type="number" id="inp-src-wt" inputmode="decimal" step="0.1" placeholder="850">
+        </div>
+        <button class="btn primary" id="btn-save-src" style="flex-shrink:0;align-self:flex-end">Save</button>
+      </div>
+    </div>
+    <div id="net-display" style="display:none"></div>
+  </div>
+
+  <!-- ── Section 2: Containers ── -->
+  <div class="card">
+    <p class="sec-label">Containers</p>
+    <div id="container-list"></div>
+    <button class="btn ghost full" id="btn-add-c" style="margin-top:8px">+ Add container</button>
+  </div>
+
+  <!-- ── Section 3: Results ── -->
+  <div class="card" id="sec-results" style="display:none">
+    <p class="sec-label">Results — target weight per container</p>
+    <div id="results-list"></div>
+  </div>
+
+  <!-- ── Section 4: Manage ── -->
+  <details class="manage" id="sec-manage">
+    <summary>Manage saved items</summary>
+    <div class="manage-inner">
+      <div class="mtabs">
+        <button class="mtab active" id="tab-c">Containers</button>
+        <button class="mtab" id="tab-s">Sources</button>
+      </div>
+      <div id="manage-c-pane"></div>
+      <div id="manage-s-pane" style="display:none"></div>
+      <div style="margin-top:16px;display:flex;justify-content:flex-end">
+        <button class="btn ghost sm" id="btn-change-pin">Change PIN</button>
+      </div>
+    </div>
+  </details>
+</main>
+
+<!-- ── Modal overlay ── -->
+<div class="overlay hidden" id="overlay">
+  <div class="modal-sheet" id="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-hdr">
+      <span class="modal-title" id="modal-title"></span>
+      <button class="btn-icon" id="modal-close">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Local storage keys ──────────────────────────────────────────────────────
+const LS = { containers: 'ms_c', sources: 'ms_s', pinHash: 'ms_p' };
+
+// ── Persisted data ──────────────────────────────────────────────────────────
+const db = {
+  containers: JSON.parse(localStorage.getItem(LS.containers) || '[]'),
+  sources:    JSON.parse(localStorage.getItem(LS.sources)    || '[]'),
+  pinHash:    localStorage.getItem(LS.pinHash) || null,
+};
+
+function saveDB(key) {
+  const v = db[key];
+  if (v === null || v === undefined) { localStorage.removeItem(LS[key]); return; }
+  localStorage.setItem(LS[key], key === 'pinHash' ? v : JSON.stringify(v));
+}
+
+// ── Session state ───────────────────────────────────────────────────────────
+const session = {
+  containers: [], // [{id, name, weight, mult}]
+  manageTab: 'containers',
+};
+
+// ── PIN state ───────────────────────────────────────────────────────────────
+const pin = {
+  mode: null,      // 'delete' | 'set' | 'change'
+  step: null,      // 'verify' | 'choose' | 'confirm' | 'current'
+  buf: '',
+  first: '',       // saved entry for confirm step
+  onSuccess: null,
+};
+
+// ── Add-container modal state ───────────────────────────────────────────────
+let addTab = 'saved';
+
+// ── Utilities ───────────────────────────────────────────────────────────────
+function uid() { return Math.random().toString(36).slice(2, 9); }
+function $(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Crypto (SHA-256 via Web Crypto API) ─────────────────────────────────────
+async function sha256(str) {
+  const data = new TextEncoder().encode(str);
+  const buf  = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ── Computation ─────────────────────────────────────────────────────────────
+function getTotal() {
+  return parseFloat($('inp-total').value) || 0;
+}
+
+function getSourceTare() {
+  const v = $('sel-source').value;
+  if (!v) return null;
+  if (v === '__new__') {
+    const w = parseFloat($('inp-src-wt').value);
+    return isNaN(w) ? null : w;
+  }
+  const s = db.sources.find(s => s.id === v);
+  return s ? s.weight : null;
+}
+
+function getMult(id) {
+  const el = $('mult-' + id);
+  return el ? Math.max(0, parseFloat(el.value) || 0) : 0;
+}
+
+function computeResults() {
+  const total = getTotal();
+  const tare  = getSourceTare();
+  if (!total || tare === null || session.containers.length === 0) return null;
+  const net     = total - tare;
+  const sumMult = session.containers.reduce((s, c) => s + getMult(c.id), 0);
+  const unit    = (sumMult > 0 && net > 0) ? net / sumMult : 0;
+  return {
+    net,
+    containers: session.containers.map(c => {
+      const m    = getMult(c.id);
+      const food = unit * m;
+      return { ...c, food, target: c.weight + food };
+    }),
+  };
+}
+
+// ── Render: net food ─────────────────────────────────────────────────────────
+function renderNet() {
+  const el    = $('net-display');
+  const total = getTotal();
+  const tare  = getSourceTare();
+  if (!total || tare === null) { el.style.display = 'none'; return; }
+  const net = total - tare;
+  el.style.display = '';
+  if (net <= 0) {
+    el.className = 'net-box err';
+    el.innerHTML = `<div class="net-lbl">Net food</div><div class="net-val">${net.toFixed(1)} g</div><div class="net-note">Source tare exceeds total weight</div>`;
+  } else {
+    el.className = 'net-box';
+    el.innerHTML = `<div class="net-lbl">Net food</div><div class="net-val">${net.toFixed(1)} g</div>`;
+  }
+}
+
+// ── Render: container list ───────────────────────────────────────────────────
+function renderContainers() {
+  // Sync mult values before re-render so they survive list rebuild
+  session.containers.forEach(c => {
+    const el = $('mult-' + c.id);
+    if (el) c.mult = el.value;
+  });
+
+  const el = $('container-list');
+  if (session.containers.length === 0) {
+    el.innerHTML = '<p class="empty">No containers added</p>';
+  } else {
+    el.innerHTML = session.containers.map(c => `
+      <div class="c-row">
+        <div class="c-info">
+          <div class="c-name">${esc(c.name)}</div>
+          <div class="c-tare">${c.weight} g tare</div>
+        </div>
+        <div class="mult-wrap">
+          <span class="mult-sym">× mult</span>
+          <input id="mult-${c.id}" class="mult-inp" type="number" step="0.1" min="0"
+                 value="${c.mult}" inputmode="decimal" oninput="onMultChange()">
+        </div>
+        <button class="btn-icon danger" onclick="removeContainer('${c.id}')" aria-label="Remove">✕</button>
+      </div>
+    `).join('');
+  }
+  renderResults();
+}
+
+// ── Render: results ──────────────────────────────────────────────────────────
+function renderResults() {
+  const sec  = $('sec-results');
+  const list = $('results-list');
+  const r    = computeResults();
+  if (!r || r.net <= 0) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  const sumFood = r.containers.reduce((s, c) => s + c.food, 0);
+  list.innerHTML = r.containers.map(c => `
+    <div class="res-row">
+      <div class="res-left">
+        <div class="res-name">${esc(c.name)}</div>
+        <div class="res-break">${c.weight} g + ${c.food.toFixed(1)} g food</div>
+      </div>
+      <div class="res-target">${c.target.toFixed(1)}<span class="res-unit"> g</span></div>
+    </div>
+  `).join('') + `
+    <div class="res-sanity">
+      Distributed: ${sumFood.toFixed(1)} g / ${r.net.toFixed(1)} g net
+    </div>
+  `;
+}
+
+function onMultChange() {
+  renderResults();
+}
+
+// ── Render: source select options ────────────────────────────────────────────
+function renderSourceOptions(keepSelection) {
+  const sel  = $('sel-source');
+  const prev = keepSelection ? sel.value : '';
+  sel.innerHTML = '<option value="">— Select or add new —</option>';
+  db.sources.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value       = s.id;
+    opt.textContent = `${s.name} (${s.weight} g)`;
+    sel.appendChild(opt);
+  });
+  sel.innerHTML += '<option value="__new__">+ Add new…</option>';
+  if (prev && prev !== '__new__') sel.value = prev;
+}
+
+// ── Render: manage section ───────────────────────────────────────────────────
+function renderManage() {
+  const isC = session.manageTab === 'containers';
+  $('tab-c').classList.toggle('active', isC);
+  $('tab-s').classList.toggle('active', !isC);
+  $('manage-c-pane').style.display = isC  ? '' : 'none';
+  $('manage-s-pane').style.display = !isC ? '' : 'none';
+
+  $('manage-c-pane').innerHTML = buildSavedList(db.containers, 'container') + `
+    <div class="manage-add">
+      <input id="mc-name" type="text" placeholder="Name">
+      <input id="mc-wt"   type="number" placeholder="Weight (g)" inputmode="decimal" step="0.1">
+      <button class="btn primary sm" onclick="manageAdd('container')">Add</button>
+    </div>`;
+
+  $('manage-s-pane').innerHTML = buildSavedList(db.sources, 'source') + `
+    <div class="manage-add">
+      <input id="ms-name" type="text" placeholder="Name">
+      <input id="ms-wt"   type="number" placeholder="Weight (g)" inputmode="decimal" step="0.1">
+      <button class="btn primary sm" onclick="manageAdd('source')">Add</button>
+    </div>`;
+}
+
+function buildSavedList(items, type) {
+  if (items.length === 0) return '<p class="empty">None saved yet</p>';
+  return items.map(item => `
+    <div class="saved-row">
+      <div class="saved-info">
+        <div class="saved-name">${esc(item.name)}</div>
+        <div class="saved-wt">${item.weight} g</div>
+      </div>
+      <button class="btn danger sm" onclick="reqDelete('${type}','${item.id}')">Delete</button>
+    </div>
+  `).join('');
+}
+
+// ── Manage actions ───────────────────────────────────────────────────────────
+function manageAdd(type) {
+  const nameEl = type === 'container' ? $('mc-name') : $('ms-name');
+  const wtEl   = type === 'container' ? $('mc-wt')   : $('ms-wt');
+  const name   = nameEl.value.trim();
+  const weight = parseFloat(wtEl.value);
+  if (!name || isNaN(weight) || weight < 0) { alert('Enter a valid name and weight.'); return; }
+  const item = { id: uid(), name, weight };
+  if (type === 'container') {
+    db.containers.push(item);
+    saveDB('containers');
+  } else {
+    db.sources.push(item);
+    saveDB('sources');
+    renderSourceOptions(true);
+  }
+  nameEl.value = '';
+  wtEl.value   = '';
+  renderManage();
+}
+
+// ── Session container actions ─────────────────────────────────────────────────
+function removeContainer(id) {
+  session.containers = session.containers.filter(c => c.id !== id);
+  renderContainers();
+}
+
+// ── Delete with PIN ──────────────────────────────────────────────────────────
+function reqDelete(type, id) {
+  const doDelete = () => {
+    if (type === 'container') {
+      db.containers = db.containers.filter(c => c.id !== id);
+      saveDB('containers');
+    } else {
+      db.sources = db.sources.filter(s => s.id !== id);
+      saveDB('sources');
+      if ($('sel-source').value === id) {
+        $('sel-source').value = '';
+        $('new-source').style.display = 'none';
+        renderNet();
+        renderResults();
+      }
+      renderSourceOptions(true);
+    }
+    renderManage();
+  };
+  openPinModal(db.pinHash ? 'delete' : 'set', doDelete);
+}
+
+// ── PIN modal ────────────────────────────────────────────────────────────────
+function openPinModal(mode, onSuccess) {
+  pin.mode      = mode;
+  pin.step      = mode === 'set' ? 'choose' : mode === 'change' ? 'current' : 'verify';
+  pin.buf       = '';
+  pin.first     = '';
+  pin.onSuccess = onSuccess || null;
+  $('modal-title').textContent = { delete: 'PIN required', set: 'Set PIN', change: 'Change PIN' }[mode];
+  renderPinModal();
+  showOverlay();
+}
+
+function renderPinModal() {
+  const prompts = {
+    verify:  'Enter your PIN to delete',
+    current: 'Enter your current PIN',
+    choose:  'Choose an 8-digit PIN',
+    confirm: 'Confirm your PIN',
+  };
+  const n = pin.buf.length;
+  $('modal-body').innerHTML = `
+    <p class="pin-prompt">${prompts[pin.step] || ''}</p>
+    <div class="pin-dots">
+      ${Array(8).fill(0).map((_, i) => `<div class="pin-dot${i < n ? ' filled' : ''}"></div>`).join('')}
+    </div>
+    <div class="pin-err" id="pin-err"></div>
+    <div class="pin-grid">
+      ${[1,2,3,4,5,6,7,8,9].map(k => `<button class="pin-key" onclick="pinTap('${k}')">${k}</button>`).join('')}
+      <button class="pin-key del" onclick="pinTap('del')">⌫</button>
+      <button class="pin-key" onclick="pinTap('0')">0</button>
+      <button class="pin-key ok" onclick="pinConfirm()">OK</button>
+    </div>
+  `;
+}
+
+async function pinTap(key) {
+  const errEl = $('pin-err');
+  if (errEl) errEl.textContent = '';
+  if (key === 'del') {
+    pin.buf = pin.buf.slice(0, -1);
+    renderPinModal();
+    return;
+  }
+  if (pin.buf.length < 8) {
+    pin.buf += key;
+    renderPinModal();
+    if (pin.buf.length === 8) await pinConfirm();
+  }
+}
+
+async function pinConfirm() {
+  const showErr = msg => { const el = $('pin-err'); if (el) el.textContent = msg; };
+  if (pin.buf.length < 8) { showErr('Enter all 8 digits'); return; }
+
+  if (pin.step === 'verify') {
+    if (await sha256(pin.buf) !== db.pinHash) {
+      showErr('Wrong PIN'); pin.buf = ''; renderPinModal(); return;
+    }
+    hideOverlay();
+    if (pin.onSuccess) pin.onSuccess();
+    return;
+  }
+
+  if (pin.step === 'choose') {
+    pin.first = pin.buf;
+    pin.buf   = '';
+    pin.step  = 'confirm';
+    renderPinModal();
+    return;
+  }
+
+  if (pin.step === 'confirm') {
+    if (pin.buf !== pin.first) {
+      showErr('PINs do not match — try again');
+      pin.buf = ''; pin.first = ''; pin.step = 'choose';
+      renderPinModal(); return;
+    }
+    db.pinHash = await sha256(pin.buf);
+    saveDB('pinHash');
+    hideOverlay();
+    if (pin.onSuccess) pin.onSuccess();
+    return;
+  }
+
+  if (pin.step === 'current') {
+    if (await sha256(pin.buf) !== db.pinHash) {
+      showErr('Wrong PIN'); pin.buf = ''; renderPinModal(); return;
+    }
+    pin.buf  = '';
+    pin.step = 'choose';
+    renderPinModal();
+    return;
+  }
+}
+
+// ── Add-container modal ──────────────────────────────────────────────────────
+function openAddContainerModal() {
+  addTab = db.containers.length > 0 ? 'saved' : 'new';
+  $('modal-title').textContent = 'Add container';
+  renderAddContainerModal();
+  showOverlay();
+}
+
+function renderAddContainerModal() {
+  const hasSaved = db.containers.length > 0;
+  $('modal-body').innerHTML = `
+    ${hasSaved ? `
+      <div class="modal-tabs">
+        <button class="modal-tab${addTab === 'saved' ? ' active' : ''}" onclick="switchAddTab('saved')">Saved</button>
+        <button class="modal-tab${addTab === 'new'   ? ' active' : ''}" onclick="switchAddTab('new')">New</button>
+      </div>` : ''}
+    <div id="add-tab-body">${buildAddTabBody(hasSaved)}</div>
+    <div class="field" style="margin-top:12px">
+      <label class="lbl">Portion multiplier <span style="color:var(--text2);font-weight:400">(1.0 = equal share)</span></label>
+      <input id="add-mult" type="number" value="1.0" step="0.1" min="0" inputmode="decimal">
+    </div>
+    <button class="btn primary full" onclick="confirmAdd()" style="margin-top:12px">Add to session</button>
+  `;
+}
+
+function buildAddTabBody(hasSaved) {
+  if (addTab === 'saved' && hasSaved) {
+    return `
+      <div class="field">
+        <label class="lbl">Select container</label>
+        <select id="add-sel">
+          <option value="">— Choose —</option>
+          ${db.containers.map(c => `<option value="${c.id}">${esc(c.name)} (${c.weight} g)</option>`).join('')}
+        </select>
+      </div>`;
+  }
+  return `
+    <div class="field"><label class="lbl">Name</label><input id="add-name" type="text" placeholder="e.g. Glass bowl"></div>
+    <div class="field"><label class="lbl">Tare weight (g)</label><input id="add-wt" type="number" inputmode="decimal" step="0.1" placeholder="e.g. 320"></div>
+    <div class="cb-row"><input id="add-save" type="checkbox"><label for="add-save">Save for later</label></div>`;
+}
+
+function switchAddTab(tab) {
+  addTab = tab;
+  const body = $('add-tab-body');
+  if (body) body.innerHTML = buildAddTabBody(true);
+  document.querySelectorAll('.modal-tab').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === tab);
+  });
+}
+
+function confirmAdd() {
+  const mult = parseFloat($('add-mult').value);
+  if (isNaN(mult) || mult < 0) { alert('Enter a valid multiplier.'); return; }
+
+  let name, weight;
+  if (addTab === 'saved' && db.containers.length > 0) {
+    const id = $('add-sel').value;
+    if (!id) { alert('Select a container.'); return; }
+    const c = db.containers.find(c => c.id === id);
+    name = c.name; weight = c.weight;
+  } else {
+    name   = ($('add-name').value || '').trim();
+    weight = parseFloat(($('add-wt') || {}).value);
+    if (!name || isNaN(weight) || weight < 0) { alert('Enter a valid name and weight.'); return; }
+    if ($('add-save') && $('add-save').checked) {
+      const item = { id: uid(), name, weight };
+      db.containers.push(item);
+      saveDB('containers');
+      renderManage();
+    }
+  }
+
+  session.containers.push({ id: uid(), name, weight, mult: String(mult) });
+  hideOverlay();
+  renderContainers();
+}
+
+// ── Overlay ──────────────────────────────────────────────────────────────────
+function showOverlay() { $('overlay').classList.remove('hidden'); }
+function hideOverlay()  { $('overlay').classList.add('hidden');    }
+
+// ── Event listeners ──────────────────────────────────────────────────────────
+$('inp-total').addEventListener('input', () => { renderNet(); renderResults(); });
+
+$('sel-source').addEventListener('change', function () {
+  $('new-source').style.display = this.value === '__new__' ? '' : 'none';
+  renderNet(); renderResults();
+});
+
+$('inp-src-wt').addEventListener('input', () => { renderNet(); renderResults(); });
+
+$('btn-save-src').addEventListener('click', () => {
+  const name   = $('inp-src-name').value.trim();
+  const weight = parseFloat($('inp-src-wt').value);
+  if (!name || isNaN(weight) || weight < 0) { alert('Enter a valid name and weight.'); return; }
+  const item = { id: uid(), name, weight };
+  db.sources.push(item);
+  saveDB('sources');
+  renderSourceOptions(false);
+  $('sel-source').value      = item.id;
+  $('new-source').style.display = 'none';
+  $('inp-src-name').value    = '';
+  $('inp-src-wt').value      = '';
+  renderManage();
+  renderNet(); renderResults();
+});
+
+$('btn-add-c').addEventListener('click', openAddContainerModal);
+
+$('modal-close').addEventListener('click', hideOverlay);
+$('overlay').addEventListener('click', e => { if (e.target === $('overlay')) hideOverlay(); });
+
+$('tab-c').addEventListener('click', () => { session.manageTab = 'containers'; renderManage(); });
+$('tab-s').addEventListener('click', () => { session.manageTab = 'sources';    renderManage(); });
+
+$('btn-change-pin').addEventListener('click', () => {
+  openPinModal(db.pinHash ? 'change' : 'set', null);
+});
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+renderSourceOptions(false);
+renderContainers();
+renderManage();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
