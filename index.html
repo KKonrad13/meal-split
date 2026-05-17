@@ -790,16 +790,33 @@ function renderSync() {
       <button class="btn ghost"   style="flex:1" onclick="pullFromGist()">↓ Pull</button>
     </div>
     <p style="text-align:center;font-size:0.8125rem;color:var(--text2);margin-top:10px">
-      ${syncAt ? `Last synced: ${syncAt}` : 'Not synced yet — push from this device first'}
+      ${syncAt ? `Last synced: ${syncAt}` : db.gistId ? 'Gist found — pull to load data' : 'No Gist yet — push to create one'}
     </p>`;
 }
 
-function saveToken() {
+async function saveToken() {
   const val = ($('token-inp').value || '').trim();
   if (!val) { alert('Enter a token.'); return; }
   db.token = val;
   saveDB('token');
   renderSync();
+  await findExistingGist();
+}
+
+async function findExistingGist() {
+  try {
+    const res   = await fetch('https://api.github.com/gists', {
+      headers: { Authorization: `token ${db.token}` },
+    });
+    if (!res.ok) return;
+    const gists = await res.json();
+    const found = gists.find(g => g.files['mealsplit.json']);
+    if (found && found.id !== db.gistId) {
+      db.gistId = found.id;
+      saveDB('gistId');
+      renderSync();
+    }
+  } catch (_) {}
 }
 
 function clearToken() {
@@ -835,7 +852,7 @@ async function pushToGist() {
 }
 
 async function pullFromGist() {
-  if (!db.gistId) { alert('No Gist found. Push from another device first.'); return; }
+  if (!db.gistId) { alert('No Gist found. Push from any device first to create one.'); return; }
   if (!confirm('Replace local containers and sources with Gist data?')) return;
   try {
     const res  = await fetch(`https://api.github.com/gists/${db.gistId}`, {
