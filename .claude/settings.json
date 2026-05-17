@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "If any architectural decisions, security model changes, or development workflow details were just changed, update CLAUDE.md to reflect them."
+          }
+        ]
+      }
+    ]
+  }
+}
