@@ -301,29 +301,6 @@
     .cb-row input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--primary); }
     .cb-row label { font-size: 0.9375rem; color: var(--text); }
 
-    /* ── PIN keypad ── */
-    .pin-prompt { text-align: center; color: var(--text2); font-size: 0.9375rem; margin-bottom: 14px; }
-    .pin-dots { display: flex; justify-content: center; gap: 10px; margin-bottom: 10px; }
-    .pin-dot { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--primary); transition: background .1s; }
-    .pin-dot.filled { background: var(--primary); }
-    .pin-err { text-align: center; color: var(--danger); font-size: 0.875rem; min-height: 22px; margin-bottom: 8px; }
-    .pin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .pin-key {
-      background: var(--bg);
-      color: var(--text);
-      font-size: 1.5rem;
-      font-weight: 500;
-      border-radius: 12px;
-      min-height: 58px;
-      border: none;
-      cursor: pointer;
-      touch-action: manipulation;
-      font-family: inherit;
-    }
-    .pin-key:active { opacity: .55; }
-    .pin-key.ok  { background: var(--primary); color: #fff; font-size: 1.25rem; }
-    .pin-key.del { font-size: 1.25rem; }
-    .pin-footer { display: flex; justify-content: flex-end; margin-top: 14px; }
   </style>
 </head>
 <body>
@@ -385,7 +362,6 @@
       <div id="manage-c-pane"></div>
       <div id="manage-s-pane" style="display:none"></div>
       <div style="margin-top:16px;display:flex;justify-content:flex-end">
-        <button class="btn ghost sm" id="btn-change-pin">Change PIN</button>
       </div>
     </div>
   </details>
@@ -412,16 +388,15 @@
 'use strict';
 
 // ── Local storage keys ──────────────────────────────────────────────────────
-const LS = { containers: 'ms_c', sources: 'ms_s', pinHash: 'ms_p', token: 'ms_t', gistId: 'ms_g', syncAt: 'ms_sa' };
+const LS = { containers: 'ms_c', sources: 'ms_s', token: 'ms_t', gistId: 'ms_g', syncAt: 'ms_sa' };
 
 // ── Persisted data ──────────────────────────────────────────────────────────
 const db = {
   containers: JSON.parse(localStorage.getItem(LS.containers) || '[]'),
   sources:    JSON.parse(localStorage.getItem(LS.sources)    || '[]'),
-  pinHash:    localStorage.getItem(LS.pinHash) || null,
-  token:      localStorage.getItem(LS.token)   || null,
-  gistId:     localStorage.getItem(LS.gistId)  || null,
-  syncAt:     localStorage.getItem(LS.syncAt)  || null,
+  token:      localStorage.getItem(LS.token)  || null,
+  gistId:     localStorage.getItem(LS.gistId) || null,
+  syncAt:     localStorage.getItem(LS.syncAt) || null,
 };
 
 function saveDB(key) {
@@ -436,16 +411,6 @@ const session = {
   manageTab: 'containers',
 };
 
-// ── PIN state ───────────────────────────────────────────────────────────────
-const pin = {
-  mode: null,         // 'delete' | 'set' | 'change'
-  step: null,         // 'verify' | 'choose' | 'confirm' | 'current'
-  buf: '',
-  first: '',          // saved entry for confirm step
-  onSuccess: null,
-  verifyPrompt: null, // optional override for the 'verify' step prompt
-};
-
 // ── Add-container modal state ───────────────────────────────────────────────
 let addTab = 'saved';
 
@@ -456,13 +421,6 @@ function esc(s) {
   return String(s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// ── Crypto (SHA-256 via Web Crypto API) ─────────────────────────────────────
-async function sha256(str) {
-  const data = new TextEncoder().encode(str);
-  const buf  = await crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ── Computation ─────────────────────────────────────────────────────────────
@@ -666,122 +624,25 @@ function removeContainer(id) {
   renderContainers();
 }
 
-// ── Delete with PIN ──────────────────────────────────────────────────────────
+// ── Delete (token-gated) ─────────────────────────────────────────────────────
 function reqDelete(type, id) {
-  const doDelete = () => {
-    if (type === 'container') {
-      db.containers = db.containers.filter(c => c.id !== id);
-      saveDB('containers');
-    } else {
-      db.sources = db.sources.filter(s => s.id !== id);
-      saveDB('sources');
-      if ($('sel-source').value === id) {
-        $('sel-source').value = '';
-        $('new-source').style.display = 'none';
-        renderNet();
-        renderResults();
-      }
-      renderSourceOptions(true);
+  if (!db.token) { alert('Set up your GitHub token first — it confirms this is your device.'); return; }
+  if (!confirm(`Delete this ${type}?`)) return;
+  if (type === 'container') {
+    db.containers = db.containers.filter(c => c.id !== id);
+    saveDB('containers');
+  } else {
+    db.sources = db.sources.filter(s => s.id !== id);
+    saveDB('sources');
+    if ($('sel-source').value === id) {
+      $('sel-source').value = '';
+      $('new-source').style.display = 'none';
+      renderNet();
+      renderResults();
     }
-    renderManage();
-  };
-  openPinModal(db.pinHash ? 'delete' : 'set', doDelete);
-}
-
-// ── PIN modal ────────────────────────────────────────────────────────────────
-function openPinModal(mode, onSuccess, verifyPrompt) {
-  pin.mode         = mode;
-  pin.step         = mode === 'set' ? 'choose' : mode === 'change' ? 'current' : 'verify';
-  pin.buf          = '';
-  pin.first        = '';
-  pin.onSuccess    = onSuccess || null;
-  pin.verifyPrompt = verifyPrompt || null;
-  $('modal-title').textContent = { delete: 'PIN required', set: 'Set PIN', change: 'Change PIN' }[mode];
-  renderPinModal();
-  showOverlay();
-}
-
-function renderPinModal() {
-  const prompts = {
-    verify:  pin.verifyPrompt || 'Enter your PIN to delete',
-    current: 'Enter your current PIN',
-    choose:  'Choose an 8-digit PIN',
-    confirm: 'Confirm your PIN',
-  };
-  const n = pin.buf.length;
-  $('modal-body').innerHTML = `
-    <p class="pin-prompt">${prompts[pin.step] || ''}</p>
-    <div class="pin-dots">
-      ${Array(8).fill(0).map((_, i) => `<div class="pin-dot${i < n ? ' filled' : ''}"></div>`).join('')}
-    </div>
-    <div class="pin-err" id="pin-err"></div>
-    <div class="pin-grid">
-      ${[1,2,3,4,5,6,7,8,9].map(k => `<button class="pin-key" onclick="pinTap('${k}')">${k}</button>`).join('')}
-      <button class="pin-key del" onclick="pinTap('del')">⌫</button>
-      <button class="pin-key" onclick="pinTap('0')">0</button>
-      <button class="pin-key ok" onclick="pinConfirm()">OK</button>
-    </div>
-  `;
-}
-
-async function pinTap(key) {
-  const errEl = $('pin-err');
-  if (errEl) errEl.textContent = '';
-  if (key === 'del') {
-    pin.buf = pin.buf.slice(0, -1);
-    renderPinModal();
-    return;
+    renderSourceOptions(true);
   }
-  if (pin.buf.length < 8) {
-    pin.buf += key;
-    renderPinModal();
-    if (pin.buf.length === 8) await pinConfirm();
-  }
-}
-
-async function pinConfirm() {
-  const showErr = msg => { const el = $('pin-err'); if (el) el.textContent = msg; };
-  if (pin.buf.length < 8) { showErr('Enter all 8 digits'); return; }
-
-  if (pin.step === 'verify') {
-    if (await sha256(pin.buf) !== db.pinHash) {
-      showErr('Wrong PIN'); pin.buf = ''; renderPinModal(); return;
-    }
-    hideOverlay();
-    if (pin.onSuccess) pin.onSuccess();
-    return;
-  }
-
-  if (pin.step === 'choose') {
-    pin.first = pin.buf;
-    pin.buf   = '';
-    pin.step  = 'confirm';
-    renderPinModal();
-    return;
-  }
-
-  if (pin.step === 'confirm') {
-    if (pin.buf !== pin.first) {
-      showErr('PINs do not match — try again');
-      pin.buf = ''; pin.first = ''; pin.step = 'choose';
-      renderPinModal(); return;
-    }
-    db.pinHash = await sha256(pin.buf);
-    saveDB('pinHash');
-    hideOverlay();
-    if (pin.onSuccess) pin.onSuccess();
-    return;
-  }
-
-  if (pin.step === 'current') {
-    if (await sha256(pin.buf) !== db.pinHash) {
-      showErr('Wrong PIN'); pin.buf = ''; renderPinModal(); return;
-    }
-    pin.buf  = '';
-    pin.step = 'choose';
-    renderPinModal();
-    return;
-  }
+  renderManage();
 }
 
 // ── Add-container modal ──────────────────────────────────────────────────────
@@ -900,10 +761,6 @@ $('overlay').addEventListener('click', e => { if (e.target === $('overlay')) hid
 $('tab-c').addEventListener('click', () => { session.manageTab = 'containers'; renderManage(); });
 $('tab-s').addEventListener('click', () => { session.manageTab = 'sources';    renderManage(); });
 
-$('btn-change-pin').addEventListener('click', () => {
-  openPinModal(db.pinHash ? 'change' : 'set', null);
-});
-
 // ── Gist sync ────────────────────────────────────────────────────────────────
 function renderSync() {
   const el = $('sync-body');
@@ -929,7 +786,7 @@ function renderSync() {
       <button class="btn danger sm" onclick="clearToken()">Clear</button>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn primary" style="flex:1" onclick="reqPush()">↑ Push</button>
+      <button class="btn primary" style="flex:1" onclick="pushToGist()">↑ Push</button>
       <button class="btn ghost"   style="flex:1" onclick="pullFromGist()">↓ Pull</button>
     </div>
     <p style="text-align:center;font-size:0.8125rem;color:var(--text2);margin-top:10px">
@@ -950,10 +807,6 @@ function clearToken() {
   db.token = null; db.gistId = null; db.syncAt = null;
   saveDB('token'); saveDB('gistId'); saveDB('syncAt');
   renderSync();
-}
-
-function reqPush() {
-  openPinModal('delete', pushToGist, 'Enter PIN to push to Gist');
 }
 
 async function pushToGist() {
